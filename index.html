@@ -1,1 +1,127 @@
 
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Absensi QR Kelas VII C</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      text-align: center;
+      padding: 20px;
+      color: #1e293b;
+    }
+    .kartu {
+      max-width: 480px;
+      margin: auto;
+      padding: 20px;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 3px 12px #0002;
+    }
+    h2 { color: #166534; }
+    button {
+      padding: 12px 20px;
+      margin: 8px;
+      border: 0;
+      border-radius: 8px;
+      background: #15803d;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #berhenti { background: #b91c1c; }
+    #hasil {
+      margin-top: 15px;
+      padding: 12px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      min-height: 25px;
+    }
+    #reader { width: 100%; margin-top: 15px; }
+  </style>
+</head>
+<body>
+  <div class="kartu">
+    <h2>ABSENSI QR</h2>
+    <h3>KELAS VII C</h3>
+    <p>Arahkan kamera ke QR Code siswa.</p>
+
+    <div id="reader"></div>
+
+    <button id="mulai" onclick="mulaiScan()">Mulai Scan</button>
+    <button id="berhenti" onclick="berhentiScan()">Berhenti</button>
+
+    <div id="hasil">Pemindai belum aktif.</div>
+  </div>
+
+  <iframe name="kirimFrame" style="display:none"></iframe>
+
+  <form id="formKirim"
+        method="POST"
+        target="kirimFrame"
+        action="https://script.google.com/macros/s/AKfycbxop73ze_C3cTl933ULZjMHxs6nptoIe-LDJoa8dCECUvqci6Eic_4JXbTkgaqLpZWY/exec">
+    <input type="hidden" name="id" id="scanId">
+  </form>
+
+  <script>
+    let pemindai;
+    let sedangScan = false;
+    let scanTerakhir = "";
+    let waktuTerakhir = 0;
+
+    async function mulaiScan() {
+      if (sedangScan) return;
+
+      pemindai = new Html5Qrcode("reader");
+
+      try {
+        await pemindai.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 230, height: 230 } },
+          berhasilScan,
+          () => {}
+        );
+
+        sedangScan = true;
+        document.getElementById("hasil").innerText =
+          "Kamera aktif. Silakan pindai QR siswa.";
+      } catch (error) {
+        document.getElementById("hasil").innerText =
+          "Kamera gagal dibuka. Pastikan izin kamera diberikan.";
+      }
+    }
+
+    function berhasilScan(teks) {
+      const id = teks.trim();
+      const sekarang = Date.now();
+
+      if (id === scanTerakhir && sekarang - waktuTerakhir < 5000) {
+        return;
+      }
+
+      scanTerakhir = id;
+      waktuTerakhir = sekarang;
+
+      document.getElementById("scanId").value = id;
+      document.getElementById("formKirim").submit();
+
+      document.getElementById("hasil").innerText =
+        "ID " + id + " telah dikirim. Periksa Google Sheets untuk memastikan tercatat.";
+    }
+
+    async function berhentiScan() {
+      if (pemindai && sedangScan) {
+        await pemindai.stop();
+        sedangScan = false;
+      }
+
+      document.getElementById("hasil").innerText =
+        "Pemindai dihentikan.";
+    }
+  </script>
+</body>
+</html>
