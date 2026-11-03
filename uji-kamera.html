@@ -1,0 +1,202 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Uji Kamera Absensi QR</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      text-align: center;
+      padding: 20px;
+      color: #1e293b;
+    }
+
+    .kartu {
+      max-width: 480px;
+      margin: auto;
+      padding: 20px;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 3px 12px #0002;
+    }
+
+    h2 { color: #166534; }
+
+    .peringatan {
+      background: #dcfce7;
+      color: #166534;
+      padding: 12px;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+
+    button {
+      padding: 12px 20px;
+      margin: 8px;
+      border: 0;
+      border-radius: 8px;
+      background: #15803d;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #berhenti { background: #b91c1c; }
+
+    #hasil {
+      margin-top: 15px;
+      padding: 12px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      min-height: 45px;
+      white-space: pre-line;
+      overflow-wrap: anywhere;
+    }
+
+    #reader {
+      width: 100%;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="kartu">
+    <h2>UJI KAMERA ABSENSI QR</h2>
+    <h3>SMP PGRI 2 KATIBUNG</h3>
+
+    <div class="peringatan">
+      MODE PENGUJIAN<br>
+      TIDAK MENYIMPAN ABSENSI
+    </div>
+
+    <p>Arahkan webcam ke barcode siswa.</p>
+
+    <div id="reader"></div>
+
+    <button id="mulai" onclick="mulaiScan()">Mulai Scan</button>
+    <button id="berhenti" onclick="berhentiScan()">Berhenti</button>
+
+    <div id="hasil">Pemindai belum aktif.</div>
+  </div>
+
+  <script>
+    let pemindai = null;
+    let sedangScan = false;
+    let scanTerakhir = "";
+    let waktuTerakhir = 0;
+
+    function tampil(teks) {
+      document.getElementById("hasil").textContent = teks;
+    }
+
+    async function mulaiScan() {
+      if (sedangScan) return;
+
+      if (typeof Html5Qrcode === "undefined") {
+        tampil("Pustaka pemindai gagal dimuat. Periksa internet.");
+        return;
+      }
+
+      document.getElementById("mulai").disabled = true;
+
+      try {
+        tampil("Mendeteksi webcam...");
+
+        const kamera = await Html5Qrcode.getCameras();
+
+        if (!kamera || kamera.length === 0) {
+          throw new Error("Tidak ditemukan kamera pada perangkat.");
+        }
+
+        const pilihan =
+          kamera.find(k =>
+            /back|rear|environment|belakang/i.test(k.label || "")
+          ) || kamera[0];
+
+        tampil(
+          "Webcam ditemukan: " +
+          (pilihan.label || "Kamera USB") +
+          "\nSedang membuka kamera..."
+        );
+
+        pemindai = new Html5Qrcode("reader");
+
+        await pemindai.start(
+          { deviceId: { exact: pilihan.id } },
+          {
+            fps: 10,
+            qrbox: { width: 230, height: 230 }
+          },
+          berhasilScan,
+          function() {}
+        );
+
+        sedangScan = true;
+
+        document.getElementById("berhenti").disabled = false;
+
+        tampil(
+          "KAMERA BERHASIL DIBUKA!" +
+          "\nSilakan arahkan webcam ke barcode siswa."
+        );
+
+      } catch (error) {
+        document.getElementById("mulai").disabled = false;
+
+        tampil(
+          "KAMERA GAGAL DIBUKA" +
+          "\nJenis: " + (error.name || "Error") +
+          "\nDetail: " + (error.message || String(error))
+        );
+
+        console.error(error);
+      }
+    }
+
+    function berhasilScan(teks) {
+      const id = String(teks || "").trim();
+      const sekarang = Date.now();
+
+      if (!id) return;
+
+      if (
+        id === scanTerakhir &&
+        sekarang - waktuTerakhir < 5000
+      ) {
+        return;
+      }
+
+      scanTerakhir = id;
+      waktuTerakhir = sekarang;
+
+      tampil(
+        "BARCODE BERHASIL DIBACA!" +
+        "\nID QR: " + id +
+        "\n\nPengujian selesai. Data tidak dikirim dan tidak disimpan."
+      );
+    }
+
+    async function berhentiScan() {
+      if (!pemindai || !sedangScan) return;
+
+      try {
+        await pemindai.stop();
+        sedangScan = false;
+
+        document.getElementById("mulai").disabled = false;
+        document.getElementById("berhenti").disabled = true;
+
+        tampil("Pemindaian dihentikan.");
+      } catch (error) {
+        tampil("Gagal menghentikan kamera: " + error.message);
+      }
+    }
+  </script>
+</body>
+</html>
